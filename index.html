@@ -1,0 +1,1299 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Kocok Dadu Bingo Interaktif (1-75)</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+    <!-- Canvas Confetti CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <!-- QRCode.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <!-- Firebase SDK Compat -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+
+    <!-- Google Fonts: Poppins & Fredoka -->
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Poppins:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
+
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              fredoka: ["Fredoka", "sans-serif"],
+              poppins: ["Poppins", "sans-serif"],
+            },
+            colors: {
+              bingoB: "#EF4444", // Red
+              bingoI: "#F59E0B", // Yellow/Orange
+              bingoN: "#10B981", // Green
+              bingoG: "#3B82F6", // Blue
+              bingoO: "#8B5CF6", // Purple
+            },
+          },
+        },
+      };
+    </script>
+
+    <style>
+      body {
+        font-family: "Poppins", sans-serif;
+        background: radial-gradient(circle at center, #1e1b4b 0%, #0f172a 100%);
+        min-height: 100vh;
+        color: #f8fafc;
+      }
+
+      /* Glassmorphism Effect */
+      .glass-panel {
+        background: rgba(30, 41, 59, 0.75);
+        backdrop-filter: blur(14px);
+        -webkit-backdrop-filter: blur(14px);
+        border: 1px solid rgba(255, 255, 255, 0.125);
+      }
+
+      .glass-panel-light {
+        background: rgba(255, 255, 255, 0.08);
+        backdrop-filter: blur(8px);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+      }
+
+      /* Ball Rolling 3D Effect */
+      .bingo-ball-display {
+        width: 150px;
+        height: 150px;
+        border-radius: 50%;
+        background: radial-gradient(
+          circle at 35% 35%,
+          #ffffff,
+          #cbd5e1 40%,
+          #64748b 85%,
+          #334155 100%
+        );
+        box-shadow: inset -10px -10px 20px rgba(0, 0, 0, 0.5),
+          0 12px 28px rgba(0, 0, 0, 0.6);
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto;
+        transition: transform 0.3s ease;
+      }
+
+      @media (min-width: 640px) {
+        .bingo-ball-display {
+          width: 190px;
+          height: 190px;
+        }
+      }
+
+      .bingo-ball-inner {
+        width: 68%;
+        height: 68%;
+        border-radius: 50%;
+        background: white;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        box-shadow: inset 0 3px 6px rgba(0, 0, 0, 0.35);
+        color: #0f172a;
+        text-align: center;
+        padding: 4px;
+      }
+
+      /* Rolling Animation */
+      @keyframes rollShake {
+        0% {
+          transform: scale(1) rotate(0deg);
+        }
+        20% {
+          transform: scale(1.08) rotate(-14deg) translateY(-8px);
+        }
+        40% {
+          transform: scale(0.95) rotate(12deg) translateY(6px);
+        }
+        60% {
+          transform: scale(1.05) rotate(-8deg) translateY(-4px);
+        }
+        80% {
+          transform: scale(0.98) rotate(4deg) translateY(2px);
+        }
+        100% {
+          transform: scale(1) rotate(0deg);
+        }
+      }
+
+      .rolling-anim {
+        animation: rollShake 0.15s infinite linear;
+      }
+
+      /* Glow Effect for Active Numbers */
+      .active-number-cell {
+        animation: pulseGlow 1.5s infinite alternate;
+      }
+
+      @keyframes pulseGlow {
+        0% {
+          box-shadow: 0 0 5px rgba(236, 72, 153, 0.5);
+          transform: scale(1);
+        }
+        100% {
+          box-shadow: 0 0 20px rgba(236, 72, 153, 0.95);
+          transform: scale(1.06);
+        }
+      }
+
+      /* Custom Scrollbar */
+      ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: rgba(15, 23, 42, 0.6);
+      }
+      ::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 4px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: rgba(255, 255, 255, 0.4);
+      }
+    </style>
+  </head>
+  <body
+    class="p-2 sm:p-4 md:p-6 flex flex-col min-h-screen justify-between relative overflow-x-hidden"
+  >
+    <!-- TOP BAR / HEADER -->
+    <header
+      class="max-w-6xl mx-auto w-full flex justify-between items-center mb-4 glass-panel p-3 sm:p-4 rounded-2xl shadow-xl"
+    >
+      <div class="flex items-center gap-3">
+        <div
+          onclick="requestHostAccess()"
+          class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-pink-500 to-purple-600 flex items-center justify-center text-white font-fredoka text-xl font-bold shadow-lg cursor-pointer"
+        >
+          <i class="fa-solid fa-dice"></i>
+        </div>
+        <div>
+          <h1
+            class="font-fredoka text-xl sm:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-yellow-300 via-pink-400 to-purple-300"
+          >
+            BINGO 1-75 MAS HENDRIK
+          </h1>
+          <p class="text-xs text-slate-400 hidden sm:block">
+            Aplikasi Kocok Angka Bingo Interaktif & Remote Rahasia
+          </p>
+        </div>
+      </div>
+
+      <!-- Controls Header -->
+      <div class="flex items-center gap-2 sm:gap-3">
+        <!-- Remote HP Modal Button -->
+        <button
+          onclick="openModal('remoteModal')"
+          class="p-2.5 sm:px-3 sm:py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-semibold transition flex items-center gap-2 text-xs sm:text-sm shadow-lg"
+        >
+          <i class="fa-solid fa-qrcode text-yellow-300"></i>
+          <span class="hidden md:inline">Remote HP</span>
+        </button>
+
+        <!-- Voice Settings Button -->
+        <button
+          onclick="openModal('voiceModal')"
+          class="p-2.5 sm:px-3 sm:py-2 rounded-xl glass-panel-light hover:bg-white/20 transition flex items-center gap-2 text-xs sm:text-sm font-semibold"
+        >
+          <i id="voiceIcon" class="fa-solid fa-volume-high text-green-400"></i>
+          <span class="hidden md:inline" id="voiceText">Suara: ON</span>
+        </button>
+
+        <!-- Bingo Checker Modal Button -->
+        <button
+          onclick="openModal('checkerModal')"
+          class="p-2.5 sm:px-3 sm:py-2 rounded-xl glass-panel-light hover:bg-white/20 transition flex items-center gap-2 text-xs sm:text-sm font-semibold text-cyan-300"
+        >
+          <i class="fa-solid fa-square-check"></i>
+          <span class="hidden md:inline">Cek Kartu</span>
+        </button>
+
+        <!-- Reset Game Button -->
+        <button
+          onclick="confirmReset()"
+          class="p-2.5 sm:px-3 sm:py-2 rounded-xl bg-red-500/20 hover:bg-red-500/40 border border-red-500/30 text-red-300 transition flex items-center gap-2 text-xs sm:text-sm font-semibold"
+        >
+          <i class="fa-solid fa-rotate-right"></i>
+          <span class="hidden md:inline">Reset</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- MAIN CONTENT CONTAINER -->
+    <main
+      class="max-w-6xl mx-auto w-full grid grid-cols-1 lg:grid-cols-12 gap-5 flex-grow"
+    >
+      <!-- LEFT COLUMN: DISPLAY & ROLL BUTTON -->
+      <div class="lg:col-span-5 flex flex-col gap-5">
+        <!-- MAIN ROLLER CARD -->
+        <div
+          class="glass-panel rounded-3xl p-6 flex flex-col items-center justify-between text-center relative overflow-hidden shadow-2xl min-h-[340px] sm:min-h-[380px]"
+        >
+          <!-- Ambient Light -->
+          <div
+            class="absolute -top-24 -left-24 w-48 h-48 bg-purple-500/20 rounded-full blur-3xl pointer-events-none"
+          ></div>
+          <div
+            class="absolute -bottom-24 -right-24 w-48 h-48 bg-pink-500/20 rounded-full blur-3xl pointer-events-none"
+          ></div>
+
+          <div
+            class="w-full flex justify-between items-center text-xs text-slate-400 font-semibold uppercase tracking-wider mb-2"
+          >
+            <span id="totalCalledCounter">Terpanggil: 0 / 75</span>
+            <span
+              id="roomCodeBadge"
+              class="bg-slate-800/80 px-2.5 py-1 rounded-full text-slate-300 border border-slate-700 font-mono text-emerald-400"
+              >Ruang: ----</span
+            >
+          </div>
+
+          <!-- 3D BINGO BALL / DICE DISPLAY -->
+          <div class="my-auto py-3">
+            <div id="bingoBall" class="bingo-ball-display">
+              <div class="bingo-ball-inner">
+                <span
+                  id="ballLetter"
+                  class="font-fredoka text-xl sm:text-2xl font-bold text-slate-400 leading-none"
+                  >READY</span
+                >
+                <span
+                  id="ballNumber"
+                  class="font-fredoka text-4xl sm:text-6xl font-bold leading-none text-slate-800 mt-1"
+                  >--</span
+                >
+              </div>
+            </div>
+          </div>
+
+          <!-- RECENT ROLLS QUICK STRIP -->
+          <div class="w-full mb-4">
+            <p class="text-xs text-slate-400 mb-2 font-medium">
+              5 Nomor Terakhir Dipanggil:
+            </p>
+            <div
+              id="recentRollsStrip"
+              class="flex justify-center gap-2 min-h-[36px]"
+            >
+              <span class="text-xs text-slate-500 italic py-1"
+                >Belum ada angka</span
+              >
+            </div>
+          </div>
+
+          <!-- MAIN KOCOK / ROLL BUTTON -->
+          <button
+            id="rollBtn"
+            onclick="rollBingo()"
+            class="w-full py-4 px-6 bg-gradient-to-r from-yellow-400 via-pink-500 to-purple-600 hover:from-yellow-300 hover:via-pink-400 hover:to-purple-500 text-slate-950 font-fredoka font-bold text-xl sm:text-2xl rounded-2xl shadow-lg hover:shadow-pink-500/30 active:scale-95 transition duration-150 flex items-center justify-center gap-3 border-2 border-yellow-200"
+          >
+            <i class="fa-solid fa-dice-five text-2xl"></i>
+            <span>KOCOK DADU BINGO</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- RIGHT COLUMN: FULL BINGO BOARD HISTORY (1-75) -->
+      <div class="lg:col-span-7 flex flex-col">
+        <div
+          class="glass-panel rounded-3xl p-4 sm:p-5 flex flex-col h-full shadow-2xl"
+        >
+          <div class="flex items-center justify-between mb-4">
+            <h2
+              class="font-fredoka text-lg sm:text-xl font-bold flex items-center gap-2 text-slate-200"
+            >
+              <i class="fa-solid fa-table-cells text-yellow-400"></i>
+              Papan Utama Bingo (1-75)
+            </h2>
+            <span class="text-xs text-slate-400"
+              >Warna menyala = Angka sudah keluar</span
+            >
+          </div>
+
+          <!-- BOARD CONTAINER GRID (B-I-N-G-O) -->
+          <div class="overflow-x-auto flex-grow">
+            <div
+              id="bingoBoardGrid"
+              class="grid grid-cols-5 gap-1.5 sm:gap-2 min-w-[310px]"
+            >
+              <!-- Dynamic Board Rows will be generated via JS -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- REMOTE HP MODAL (QR CODE & PAIRING) -->
+    <div
+      id="remoteModal"
+      class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden flex items-center justify-center p-4"
+    >
+      <div
+        class="glass-panel bg-slate-900 border border-slate-700 max-w-sm w-full rounded-3xl p-5 shadow-2xl text-slate-100 relative text-center"
+      >
+        <button
+          onclick="closeModal('remoteModal')"
+          class="absolute top-4 right-4 text-slate-400 hover:text-white"
+        >
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+
+        <i class="fa-solid fa-mobile-screen-button text-4xl text-yellow-400 mb-2"></i>
+        <h3 class="font-fredoka text-xl font-bold text-yellow-300 mb-1">
+          Remote Rahasia HP Panitia
+        </h3>
+        <p class="text-xs text-slate-300 mb-4">
+          Scan QR Code ini menggunakan HP Panitia untuk menyetel nomor keluar secara rahasia.
+        </p>
+
+        <div class="bg-slate-950 p-4 rounded-2xl border border-slate-800 mb-4">
+          <p class="text-xs text-slate-400 mb-1">Kode Ruangan Realtime:</p>
+          <div id="displayRoomCode" class="text-3xl font-mono font-bold text-emerald-400 tracking-widest mb-3">----</div>
+          <div id="qrcode" class="flex justify-center bg-white p-2 rounded-xl w-fit mx-auto mb-2"></div>
+          <p class="text-[11px] text-slate-400">Panitia tinggal scan tanpa perlu buka laptop!</p>
+        </div>
+
+        <button
+          onclick="copyRemoteLink()"
+          class="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200 rounded-xl border border-slate-700 transition flex items-center justify-center gap-2"
+        >
+          <i class="fa-solid fa-copy"></i> Salin Link Remote HP
+        </button>
+      </div>
+    </div>
+
+    <!-- VOICE SETTINGS & TEST MODAL -->
+    <div
+      id="voiceModal"
+      class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm hidden flex items-center justify-center p-4"
+    >
+      <div
+        class="glass-panel bg-slate-900 border border-slate-700 max-w-md w-full rounded-3xl p-5 shadow-2xl text-slate-100 relative"
+      >
+        <button
+          onclick="closeModal('voiceModal')"
+          class="absolute top-4 right-4 text-slate-400 hover:text-white"
+        >
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+
+        <h3
+          class="font-fredoka text-xl font-bold text-green-400 mb-2 flex items-center gap-2"
+        >
+          <i class="fa-solid fa-volume-high"></i> Pengaturan Suara Bahasa
+          Indonesia
+        </h3>
+        <p class="text-xs text-slate-300 mb-4">
+          Atur narator pengucapan angka bingo otomatis dalam Bahasa Indonesia
+          murni.
+        </p>
+
+        <div class="space-y-4">
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1"
+              >Status Suara:</label
+            >
+            <button
+              id="modalVoiceToggle"
+              onclick="toggleVoice()"
+              class="w-full py-2 px-3 rounded-xl bg-slate-800 border border-slate-700 text-left text-sm flex justify-between items-center"
+            >
+              <span>Aktifkan Suara Narator</span>
+              <span
+                id="modalVoiceStatus"
+                class="text-xs font-bold text-green-400"
+                >ON</span
+              >
+            </button>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1"
+              >Pilih Suara Narator (Bahasa Indonesia):</label
+            >
+            <select
+              id="voiceSelect"
+              onchange="changeSelectedVoice()"
+              class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-green-500"
+            >
+              <option value="">Mengakses Suara Perangkat...</option>
+            </select>
+          </div>
+
+          <div class="pt-2 flex gap-2">
+            <button
+              onclick="testIndonesianVoice()"
+              class="w-full py-2.5 bg-green-600 hover:bg-green-500 rounded-xl font-bold text-xs text-white transition flex items-center justify-center gap-2"
+            >
+              <i class="fa-solid fa-play"></i> Uji Suara ("Bingo! B 12")
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SECRET HOST / GAME MASTER DRAWER -->
+    <div
+      id="hostDrawer"
+      class="fixed inset-x-0 bottom-0 z-50 transform translate-y-full transition-transform duration-300 ease-in-out"
+    >
+      <div
+        class="max-w-4xl mx-auto bg-slate-900/95 border-t-2 border-purple-500/60 backdrop-blur-xl rounded-t-3xl p-4 sm:p-6 shadow-2xl text-slate-200"
+      >
+        <div
+          class="flex justify-between items-center pb-3 mb-4 border-b border-slate-800"
+        >
+          <div class="flex items-center gap-2">
+            <i class="fa-solid fa-user-ninja text-yellow-400 text-xl"></i>
+            <div>
+              <h3 class="font-fredoka text-lg font-bold text-yellow-300">
+                Panel Mas Hendrik (Host Control)
+              </h3>
+              <p class="text-xs text-slate-400">Atur nomor keluar secara realtime dari HP/Laptop</p>
+            </div>
+          </div>
+          <button
+            onclick="toggleHostDrawer(false)"
+            class="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 flex items-center justify-center text-slate-400 hover:text-white"
+          >
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- MANUAL PRESET INPUT & QUEUE -->
+          <div class="space-y-3">
+            <label class="block text-xs font-semibold text-slate-300"
+              >1. Mas Atur Saja:</label
+            >
+            <div class="flex gap-2">
+              <input
+                type="number"
+                id="manualNextInput"
+                min="1"
+                max="75"
+                placeholder="Nomor 1-75"
+                class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-purple-500 text-sm"
+              />
+              <button
+                onclick="setNextForcedNumber()"
+                class="bg-purple-600 hover:bg-purple-500 px-4 py-2 rounded-xl text-xs font-bold text-white whitespace-nowrap transition"
+              >
+                Atur Saja
+              </button>
+              <button
+                onclick="queueForcedNumber()"
+                class="bg-indigo-600 hover:bg-indigo-500 px-3 py-2 rounded-xl text-xs font-bold text-white whitespace-nowrap transition"
+                title="Tambah ke Antrean"
+              >
+                + Antrean
+              </button>
+            </div>
+
+            <!-- FORCED QUEUE LIST DISPLAY -->
+            <div class="bg-slate-950/60 rounded-xl p-3 border border-slate-800">
+              <div class="flex justify-between items-center text-xs mb-1">
+                <span class="text-slate-400 font-semibold"
+                  >Antrean Angka Rahasia:</span
+                >
+                <button
+                  onclick="clearForcedQueue()"
+                  class="text-red-400 hover:text-red-300 text-[10px]"
+                >
+                  Bersihkan Antrean
+                </button>
+              </div>
+              <div
+                id="queueListDisplay"
+                class="flex flex-wrap gap-1.5 min-h-[32px] items-center"
+              >
+                <span class="text-xs text-slate-600 italic"
+                  >Acak Murni (Tidak Ada Preset)</span
+                >
+              </div>
+            </div>
+          </div>
+
+          <!-- QUICK SELECT BOARD FOR NEXT NUMBER -->
+          <div class="space-y-2">
+            <label class="block text-xs font-semibold text-slate-300"
+              >2. Pilih Langsung Angka dari Grid:</label
+            >
+            <div
+              id="hostQuickSelectBoard"
+              class="grid grid-cols-10 gap-1 max-h-36 overflow-y-auto p-1 bg-slate-950/60 rounded-xl border border-slate-800"
+            >
+              <!-- Dynamic Mini Board for quick picking -->
+            </div>
+          </div>
+        </div>
+
+        <div
+          class="mt-4 pt-3 border-t border-slate-800/80 flex justify-between items-center text-xs"
+        >
+          <span id="hostStatusText" class="text-green-400 font-mono font-medium"
+            >Status Mode: Acak Murni</span
+          >
+          <button
+            onclick="changeHostPIN()"
+            class="text-purple-300 hover:text-purple-200 text-xs underline"
+          >
+            Ubah PIN Panitia
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- BINGO CARD CHECKER MODAL -->
+    <div
+      id="checkerModal"
+      class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm hidden flex items-center justify-center p-4"
+    >
+      <div
+        class="glass-panel bg-slate-900 border border-slate-700 max-w-md w-full rounded-3xl p-5 shadow-2xl text-slate-100 relative"
+      >
+        <button
+          onclick="closeModal('checkerModal')"
+          class="absolute top-4 right-4 text-slate-400 hover:text-white"
+        >
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+
+        <h3
+          class="font-fredoka text-xl font-bold text-cyan-400 mb-2 flex items-center gap-2"
+        >
+          <i class="fa-solid fa-list-check"></i> Cek Kemenangan Kartu Bingo
+        </h3>
+        <p class="text-xs text-slate-300 mb-4">
+          Masukkan nomor pada kartu pemain (pisahkan dengan koma/spasi) untuk
+          memeriksa ketersediaannya.
+        </p>
+
+        <textarea
+          id="checkerInput"
+          rows="3"
+          placeholder="Contoh: 5, 18, 33, 50, 71"
+          class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-cyan-500 mb-3"
+        ></textarea>
+
+        <button
+          onclick="checkBingoWinner()"
+          class="w-full py-2.5 bg-cyan-600 hover:bg-cyan-500 rounded-xl font-bold text-sm text-white transition mb-3"
+        >
+          Periksa Kartu Pemain
+        </button>
+
+        <div
+          id="checkerResult"
+          class="hidden p-3 rounded-xl bg-slate-800 text-xs text-center border border-slate-700"
+        >
+          <!-- Dynamic Result -->
+        </div>
+      </div>
+    </div>
+
+    <!-- FOOTER -->
+    <footer
+      class="max-w-6xl mx-auto w-full text-center text-xs text-slate-500 mt-6 py-2"
+    >
+      <p>© 2026 Kocok Dadu Bingo Mas Hendrik • Maumere Punya Mau</p>
+    </footer>
+
+    <!-- JS LOGIC -->
+    <script>
+      // --- FIREBASE PUBLIC REALTIME DATABASE ---
+      const firebaseConfig = {
+        databaseURL: "https://bingo-game-demo-default-rtdb.asia-southeast1.firebasedatabase.app"
+      };
+      if (!firebase.apps.length) {
+        firebase.initializeApp(firebaseConfig);
+      }
+      const db = firebase.database();
+
+      // --- GAME STATE ---
+      const maxBingoNumber = 75;
+      let drawnNumbers = [];
+      let isRolling = false;
+      let voiceEnabled = true;
+      let roomCode = "";
+
+      // Secret Host & Rigging Settings
+      let hostPIN = "1234"; // Default PIN Rahasia
+      let forcedQueue = [];
+      let isHostDrawerOpen = false;
+
+      // Web Speech API Voice Selection
+      let selectedVoice = null;
+      let availableVoices = [];
+
+      // Audio Context
+      let audioCtx = null;
+
+      function getAudioContext() {
+        if (!audioCtx) {
+          audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (audioCtx.state === "suspended") {
+          audioCtx.resume();
+        }
+        return audioCtx;
+      }
+
+      // --- SYNTHESIZED SOUND EFFECTS ---
+      function playClickSound() {
+        try {
+          const ctx = getAudioContext();
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = "triangle";
+          osc.frequency.setValueAtTime(130, ctx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(
+            45,
+            ctx.currentTime + 0.05
+          );
+          gain.gain.setValueAtTime(0.3, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.05);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start();
+          osc.stop(ctx.currentTime + 0.05);
+        } catch (e) {
+          console.error(e);
+        }
+      }
+
+      function playWinSound() {
+        try {
+          const ctx = getAudioContext();
+          const notes = [523.25, 659.25, 783.99, 1046.5];
+          notes.forEach((freq, idx) => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = "sine";
+            osc.frequency.value = freq;
+            const startTime = ctx.currentTime + idx * 0.1;
+            gain.gain.setValueAtTime(0.3, startTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.35);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(startTime);
+            osc.stop(startTime + 0.35);
+          });
+        } catch (e) {
+          console.error(e);
+        }
+      }
+
+      // --- BAHASA INDONESIA SPEECH SYNTHESIS LOGIC ---
+      function initVoices() {
+        if (!("speechSynthesis" in window)) return;
+
+        const populateVoices = () => {
+          availableVoices = window.speechSynthesis.getVoices();
+          const voiceSelect = document.getElementById("voiceSelect");
+          voiceSelect.innerHTML = "";
+
+          // Prioritize Indonesian voices
+          const idVoices = availableVoices.filter((v) =>
+            v.lang.toLowerCase().includes("id")
+          );
+
+          if (idVoices.length > 0) {
+            idVoices.forEach((voice, index) => {
+              const option = document.createElement("option");
+              option.value = voice.name;
+              option.textContent = `${voice.name} (${voice.lang}) - Bahasa Indonesia`;
+              voiceSelect.appendChild(option);
+            });
+            selectedVoice = idVoices[0];
+          } else {
+            // Fallback option
+            const option = document.createElement("option");
+            option.value = "";
+            option.textContent =
+              "Suara bawaan sistem (Bahasa Indonesia Mode Auto)";
+            voiceSelect.appendChild(option);
+
+            availableVoices.forEach((voice) => {
+              const opt = document.createElement("option");
+              opt.value = voice.name;
+              opt.textContent = `${voice.name} (${voice.lang})`;
+              voiceSelect.appendChild(opt);
+            });
+          }
+        };
+
+        populateVoices();
+        if (speechSynthesis.onvoiceschanged !== undefined) {
+          speechSynthesis.onvoiceschanged = populateVoices;
+        }
+      }
+
+      function changeSelectedVoice() {
+        const voiceName = document.getElementById("voiceSelect").value;
+        selectedVoice =
+          availableVoices.find((v) => v.name === voiceName) || null;
+      }
+
+      function speakBingoNumber(letter, number) {
+        if (!voiceEnabled || !("speechSynthesis" in window)) return;
+
+        window.speechSynthesis.cancel(); // Stop ongoing speech
+
+        const textToSpeak = `Bingo! Huruf ${letter}, nomor ${number}. ${letter} ${number}.`;
+
+        const utterance = new SpeechSynthesisUtterance(textToSpeak);
+        utterance.lang = "id-ID";
+        utterance.rate = 0.9; // Slightly slower for crisp clarity
+        utterance.pitch = 1.0;
+
+        if (selectedVoice) {
+          utterance.voice = selectedVoice;
+        }
+
+        window.speechSynthesis.speak(utterance);
+      }
+
+      function testIndonesianVoice() {
+        speakBingoNumber("B", 12);
+      }
+
+      function toggleVoice() {
+        voiceEnabled = !voiceEnabled;
+        const icon = document.getElementById("voiceIcon");
+        const text = document.getElementById("voiceText");
+        const modalStatus = document.getElementById("modalVoiceStatus");
+
+        if (voiceEnabled) {
+          icon.className = "fa-solid fa-volume-high text-green-400";
+          text.textContent = "Suara: ON";
+          modalStatus.textContent = "ON";
+          modalStatus.className = "text-xs font-bold text-green-400";
+        } else {
+          icon.className = "fa-solid fa-volume-xmark text-slate-500";
+          text.textContent = "Suara: OFF";
+          modalStatus.textContent = "OFF";
+          modalStatus.className = "text-xs font-bold text-red-400";
+          if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+        }
+      }
+
+      // --- BINGO HELPER FUNCTIONS ---
+      function getBingoLetter(num) {
+        if (num <= 15)
+          return { letter: "B", color: "text-red-500", bg: "bg-red-500" };
+        if (num <= 30)
+          return { letter: "I", color: "text-amber-500", bg: "bg-amber-500" };
+        if (num <= 45)
+          return {
+            letter: "N",
+            color: "text-emerald-500",
+            bg: "bg-emerald-500",
+          };
+        if (num <= 60)
+          return { letter: "G", color: "text-blue-500", bg: "bg-blue-500" };
+        return { letter: "O", color: "text-purple-500", bg: "bg-purple-500" };
+      }
+
+      // --- INITIALIZE BOARD (1-75) ---
+      function initBoard() {
+        const grid = document.getElementById("bingoBoardGrid");
+        grid.innerHTML = "";
+
+        const columns = [
+          { name: "B", min: 1, max: 15, color: "from-red-600 to-red-800" },
+          { name: "I", min: 16, max: 30, color: "from-amber-500 to-amber-700" },
+          {
+            name: "N",
+            min: 31,
+            max: 45,
+            color: "from-emerald-600 to-emerald-800",
+          },
+          { name: "G", min: 46, max: 60, color: "from-blue-600 to-blue-800" },
+          {
+            name: "O",
+            min: 61,
+            max: 75,
+            color: "from-purple-600 to-purple-800",
+          },
+        ];
+
+        columns.forEach((col) => {
+          const colDiv = document.createElement("div");
+          colDiv.className = "flex flex-col gap-1.5";
+
+          // Header (B-I-N-G-O)
+          const header = document.createElement("div");
+          header.className = `w-full py-1.5 rounded-xl bg-gradient-to-b ${col.color} text-white font-fredoka text-center text-lg font-bold shadow-md`;
+          header.textContent = col.name;
+          colDiv.appendChild(header);
+
+          // Cell Numbers
+          for (let i = col.min; i <= col.max; i++) {
+            const btn = document.createElement("div");
+            btn.id = `cell-${i}`;
+            btn.className =
+              "w-full aspect-square rounded-lg bg-slate-800/80 border border-slate-700/60 text-slate-400 font-fredoka font-semibold text-xs sm:text-sm flex items-center justify-center transition-all duration-300";
+            btn.textContent = i;
+            colDiv.appendChild(btn);
+          }
+          grid.appendChild(colDiv);
+        });
+
+        renderHostQuickSelectBoard();
+      }
+
+      // --- MAIN ROLLING LOGIC ---
+      function rollBingo() {
+        if (isRolling) return;
+
+        if (drawnNumbers.length >= maxBingoNumber) {
+          alert("Semua angka bingo (1-75) sudah keluar!");
+          return;
+        }
+
+        isRolling = true;
+        const rollBtn = document.getElementById("rollBtn");
+        const ballContainer = document.getElementById("bingoBall");
+        const ballNum = document.getElementById("ballNumber");
+        const ballLet = document.getElementById("ballLetter");
+
+        rollBtn.disabled = true;
+        rollBtn.classList.add("opacity-75", "cursor-not-allowed");
+        ballContainer.classList.add("rolling-anim");
+
+        // Determine next number: Secret Host Queue or Random
+        let nextNum;
+        if (forcedQueue.length > 0) {
+          nextNum = forcedQueue.shift();
+          if (drawnNumbers.includes(nextNum)) {
+            nextNum = getRandomAvailableNumber();
+          }
+          syncSecretQueueToFirebase(); // Sync remaining queue to remote
+        } else {
+          nextNum = getRandomAvailableNumber();
+        }
+
+        updateHostQueueDisplay();
+
+        // Rolling Effect Loop
+        let ticks = 0;
+        const maxTicks = 22;
+        const rollInterval = setInterval(() => {
+          ticks++;
+          playClickSound();
+
+          const tempNum = Math.floor(Math.random() * maxBingoNumber) + 1;
+          const tempLetterInfo = getBingoLetter(tempNum);
+          ballNum.textContent = tempNum;
+          ballLet.textContent = tempLetterInfo.letter;
+
+          if (ticks >= maxTicks) {
+            clearInterval(rollInterval);
+
+            // REVEAL RESULT
+            ballContainer.classList.remove("rolling-anim");
+            drawnNumbers.push(nextNum);
+
+            const finalLetterInfo = getBingoLetter(nextNum);
+            ballNum.textContent = nextNum;
+            ballLet.textContent = finalLetterInfo.letter;
+            ballLet.className = `font-fredoka text-xl sm:text-2xl font-bold leading-none ${finalLetterInfo.color}`;
+
+            // Highlight Board & Update Recent
+            highlightBoardCell(nextNum, finalLetterInfo);
+            updateRecentRolls();
+
+            document.getElementById(
+              "totalCalledCounter"
+            ).textContent = `Terpanggil: ${drawnNumbers.length} / ${maxBingoNumber}`;
+
+            // Play Sound, Confetti, and Voice
+            playWinSound();
+            triggerConfettiSmall();
+            speakBingoNumber(finalLetterInfo.letter, nextNum);
+
+            isRolling = false;
+            rollBtn.disabled = false;
+            rollBtn.classList.remove("opacity-75", "cursor-not-allowed");
+          }
+        }, 90);
+      }
+
+      function getRandomAvailableNumber() {
+        const available = [];
+        for (let i = 1; i <= maxBingoNumber; i++) {
+          if (!drawnNumbers.includes(i)) available.push(i);
+        }
+        if (available.length === 0) return null;
+        return available[Math.floor(Math.random() * available.length)];
+      }
+
+      function highlightBoardCell(num, letterInfo) {
+        const cell = document.getElementById(`cell-${num}`);
+        if (!cell) return;
+
+        cell.className = `w-full aspect-square rounded-lg ${letterInfo.bg} text-white font-fredoka font-bold text-xs sm:text-sm flex items-center justify-center shadow-lg active-number-cell`;
+
+        setTimeout(() => {
+          cell.classList.remove("active-number-cell");
+          cell.classList.add("opacity-90");
+        }, 3000);
+      }
+
+      function updateRecentRolls() {
+        const strip = document.getElementById("recentRollsStrip");
+        strip.innerHTML = "";
+
+        const recent = [...drawnNumbers].reverse().slice(0, 5);
+        if (recent.length === 0) {
+          strip.innerHTML =
+            '<span class="text-xs text-slate-500 italic py-1">Belum ada angka</span>';
+          return;
+        }
+
+        recent.forEach((num, index) => {
+          const info = getBingoLetter(num);
+          const badge = document.createElement("span");
+          const activeStyle =
+            index === 0
+              ? "opacity-100 scale-110 font-bold border-2 border-white"
+              : "opacity-70 text-xs";
+          badge.className = `px-2.5 py-1 rounded-xl ${info.bg} text-white font-fredoka text-xs flex items-center gap-1 shadow transition-transform ${activeStyle}`;
+          badge.textContent = `${info.letter}-${num}`;
+          strip.appendChild(badge);
+        });
+      }
+
+      // --- SECRET HOST / PANITIA ACCESS LOGIC ---
+      function requestHostAccess() {
+        if (isHostDrawerOpen) {
+          toggleHostDrawer(false);
+          return;
+        }
+
+        const inputPin = prompt("Kata Mutiara (PIN Panitia)");
+        if (inputPin === hostPIN) {
+          toggleHostDrawer(true);
+        } else if (inputPin !== null) {
+          alert("PIN Salah! Akses ditolak.");
+        }
+      }
+
+      function toggleHostDrawer(show) {
+        isHostDrawerOpen = show;
+        const drawer = document.getElementById("hostDrawer");
+        if (isHostDrawerOpen) {
+          drawer.classList.remove("translate-y-full");
+        } else {
+          drawer.classList.add("translate-y-full");
+        }
+      }
+
+      function changeHostPIN() {
+        const current = prompt("Masukkan PIN Lama:");
+        if (current === hostPIN) {
+          const newPin = prompt("Masukkan PIN Baru:");
+          if (newPin && newPin.trim()) {
+            hostPIN = newPin.trim();
+            alert("PIN Panitia berhasil diperbarui!");
+          }
+        } else if (current !== null) {
+          alert("PIN Lama Salah.");
+        }
+      }
+
+      function setNextForcedNumber() {
+        const input = document.getElementById("manualNextInput");
+        const val = parseInt(input.value);
+
+        if (isNaN(val) || val < 1 || val > maxBingoNumber) {
+          alert(`Masukkan angka valid 1-${maxBingoNumber}`);
+          return;
+        }
+        if (drawnNumbers.includes(val)) {
+          alert(`Nomor ${val} sudah pernah keluar!`);
+          return;
+        }
+
+        forcedQueue = [val];
+        input.value = "";
+        updateHostQueueDisplay();
+        syncSecretQueueToFirebase();
+      }
+
+      function queueForcedNumber() {
+        const input = document.getElementById("manualNextInput");
+        const val = parseInt(input.value);
+
+        if (isNaN(val) || val < 1 || val > maxBingoNumber) {
+          alert(`Masukkan angka valid 1-${maxBingoNumber}`);
+          return;
+        }
+        if (drawnNumbers.includes(val)) {
+          alert(`Nomor ${val} sudah pernah keluar!`);
+          return;
+        }
+        if (forcedQueue.includes(val)) {
+          alert(`Nomor ${val} sudah ada dalam antrean.`);
+          return;
+        }
+
+        forcedQueue.push(val);
+        input.value = "";
+        updateHostQueueDisplay();
+        syncSecretQueueToFirebase();
+      }
+
+      function clearForcedQueue() {
+        forcedQueue = [];
+        updateHostQueueDisplay();
+        syncSecretQueueToFirebase();
+      }
+
+      function updateHostQueueDisplay() {
+        const queueDisplay = document.getElementById("queueListDisplay");
+        const statusText = document.getElementById("hostStatusText");
+
+        queueDisplay.innerHTML = "";
+
+        if (forcedQueue.length === 0) {
+          queueDisplay.innerHTML =
+            '<span class="text-xs text-slate-600 italic">Acak Murni (Tidak Ada Preset)</span>';
+          statusText.textContent = "Status Mode: Acak Murni";
+          statusText.className = "text-green-400 font-mono font-medium";
+        } else {
+          forcedQueue.forEach((num, idx) => {
+            const badge = document.createElement("span");
+            badge.className =
+              "bg-purple-600 text-white font-bold text-xs px-2 py-0.5 rounded-lg flex items-center gap-1";
+            badge.innerHTML = `${
+              idx === 0 ? "👉 " : ""
+            }#${num} <button onclick="removeQueueIndex(${idx})" class="text-purple-200 hover:text-white ml-1">×</button>`;
+            queueDisplay.appendChild(badge);
+          });
+
+          statusText.textContent = `Status Mode: TERSET (Nomor berikutnya: ${forcedQueue[0]})`;
+          statusText.className = "text-yellow-400 font-mono font-medium";
+        }
+        renderHostQuickSelectBoard();
+      }
+
+      function removeQueueIndex(index) {
+        forcedQueue.splice(index, 1);
+        updateHostQueueDisplay();
+        syncSecretQueueToFirebase();
+      }
+
+      function renderHostQuickSelectBoard() {
+        const board = document.getElementById("hostQuickSelectBoard");
+        board.innerHTML = "";
+
+        for (let i = 1; i <= maxBingoNumber; i++) {
+          const isDrawn = drawnNumbers.includes(i);
+          const isQueued = forcedQueue.includes(i);
+
+          const btn = document.createElement("button");
+          let bgClass =
+            "bg-slate-800 text-slate-300 hover:bg-purple-600 hover:text-white";
+          if (isDrawn)
+            bgClass =
+              "bg-slate-900 text-slate-600 line-through cursor-not-allowed";
+          if (isQueued) bgClass = "bg-yellow-500 text-slate-950 font-bold";
+
+          btn.className = `p-1 text-[11px] rounded transition ${bgClass}`;
+          btn.textContent = i;
+          btn.disabled = isDrawn;
+
+          btn.onclick = () => {
+            if (!isDrawn) {
+              if (forcedQueue.includes(i)) {
+                forcedQueue = forcedQueue.filter((n) => n !== i);
+              } else {
+                forcedQueue.push(i);
+              }
+              updateHostQueueDisplay();
+              syncSecretQueueToFirebase();
+            }
+          };
+
+          board.appendChild(btn);
+        }
+      }
+
+      // --- ONLINE REALTIME FIREBASE REMOTE LOGIC ---
+      function initRoomSession() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const paramRoom = urlParams.get("room");
+        const isRemoteUser = urlParams.get("mode") === "remote";
+
+        if (paramRoom) {
+          roomCode = paramRoom;
+        } else {
+          roomCode = Math.floor(1000 + Math.random() * 9000).toString();
+        }
+
+        document.getElementById("roomCodeBadge").textContent = `Ruang: ${roomCode}`;
+        document.getElementById("displayRoomCode").textContent = roomCode;
+
+        // Generate QR Code Link
+        const remoteUrl = `${window.location.origin}${window.location.pathname}?room=${roomCode}&mode=remote`;
+        document.getElementById("qrcode").innerHTML = "";
+        new QRCode(document.getElementById("qrcode"), {
+          text: remoteUrl,
+          width: 130,
+          height: 130,
+        });
+
+        // Listen for Realtime Queue Updates
+        db.ref(`bingo_rooms/${roomCode}/forcedQueue`).on("value", (snapshot) => {
+          const val = snapshot.val();
+          if (val !== null) {
+            forcedQueue = val || [];
+            updateHostQueueDisplay();
+          }
+        });
+
+        // Auto open Host Drawer if opened as remote from QR Code
+        if (isRemoteUser) {
+          setTimeout(() => {
+            requestHostAccess();
+          }, 300);
+        }
+      }
+
+      function syncSecretQueueToFirebase() {
+        if (roomCode) {
+          db.ref(`bingo_rooms/${roomCode}/forcedQueue`).set(forcedQueue);
+        }
+      }
+
+      function copyRemoteLink() {
+        const remoteUrl = `${window.location.origin}${window.location.pathname}?room=${roomCode}&mode=remote`;
+        navigator.clipboard.writeText(remoteUrl);
+        alert("Link Remote HP disalin! Kirimkan ke WhatsApp Panitia.");
+      }
+
+      // --- GAME RESET & MODAL HANDLERS ---
+      function confirmReset() {
+        if (
+          confirm("Apakah Anda yakin ingin melakukan RESET ulang permainan?")
+        ) {
+          drawnNumbers = [];
+          forcedQueue = [];
+          syncSecretQueueToFirebase();
+
+          document.getElementById("ballNumber").textContent = "--";
+          document.getElementById("ballLetter").textContent = "READY";
+          document.getElementById("ballLetter").className =
+            "font-fredoka text-xl sm:text-2xl font-bold text-slate-400 leading-none";
+          document.getElementById(
+            "totalCalledCounter"
+          ).textContent = `Terpanggil: 0 / ${maxBingoNumber}`;
+
+          initBoard();
+          updateRecentRolls();
+          updateHostQueueDisplay();
+        }
+      }
+
+      function openModal(id) {
+        document.getElementById(id).classList.remove("hidden");
+      }
+
+      function closeModal(id) {
+        document.getElementById(id).classList.add("hidden");
+      }
+
+      function checkBingoWinner() {
+        const inputStr = document.getElementById("checkerInput").value;
+        const resDiv = document.getElementById("checkerResult");
+        resDiv.classList.remove("hidden");
+
+        if (!inputStr.trim()) {
+          resDiv.className =
+            "p-3 rounded-xl bg-red-900/40 text-red-300 text-xs text-center border border-red-700";
+          resDiv.textContent = "Silakan masukkan nomor kartu terlebih dahulu.";
+          return;
+        }
+
+        const parsed = inputStr
+          .split(/[\s,]+/)
+          .map((n) => parseInt(n.trim()))
+          .filter((n) => !isNaN(n));
+        const missing = parsed.filter((num) => !drawnNumbers.includes(num));
+
+        if (parsed.length === 0) {
+          resDiv.className =
+            "p-3 rounded-xl bg-red-900/40 text-red-300 text-xs text-center border border-red-700";
+          resDiv.textContent = "Format nomor tidak valid.";
+          return;
+        }
+
+        if (missing.length === 0) {
+          resDiv.className =
+            "p-3 rounded-xl bg-green-900/50 text-green-300 text-xs text-center border border-green-600 font-bold";
+          resDiv.innerHTML =
+            '<i class="fa-solid fa-trophy text-yellow-400 text-lg block mb-1"></i> BINGO! Semua nomor kartu ini sudah terpanggil!';
+          triggerConfettiFull();
+          playWinSound();
+        } else {
+          resDiv.className =
+            "p-3 rounded-xl bg-amber-900/40 text-amber-300 text-xs text-center border border-amber-700";
+          resDiv.innerHTML = `Belum Bingo. Masih kurang ${
+            missing.length
+          } nomor:<br><span class="font-bold text-white mt-1 block">${missing.join(
+            ", "
+          )}</span>`;
+        }
+      }
+
+      // --- CONFETTI EFFECTS ---
+      function triggerConfettiSmall() {
+        if (typeof confetti === "function") {
+          confetti({ particleCount: 30, spread: 60, origin: { y: 0.7 } });
+        }
+      }
+
+      function triggerConfettiFull() {
+        if (typeof confetti === "function") {
+          confetti({ particleCount: 130, spread: 100, origin: { y: 0.5 } });
+        }
+      }
+
+      // --- INIT ON LOAD ---
+      window.onload = function () {
+        initBoard();
+        initVoices();
+        initRoomSession();
+        updateRecentRolls();
+        updateHostQueueDisplay();
+
+        document.body.addEventListener(
+          "click",
+          () => {
+            getAudioContext();
+          },
+          { once: true }
+        );
+      };
+    </script>
+  </body>
+</html>
